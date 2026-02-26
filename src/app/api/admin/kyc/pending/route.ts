@@ -45,3 +45,6 @@ export async function GET() {
     }, { status: 500 })
   }
 }
+
+
+export const dynamic = "force-dynamic";

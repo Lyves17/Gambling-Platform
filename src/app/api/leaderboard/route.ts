@@ -92,3 +92,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 })
   }
 }
+
+
+export const dynamic = "force-dynamic";

@@ -50,3 +50,6 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to fetch races' }, { status: 500 })
   }
 }
+
+
+export const dynamic = "force-dynamic";

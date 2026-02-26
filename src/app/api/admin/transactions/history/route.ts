@@ -21,3 +21,6 @@ export async function GET() {
     return NextResponse.json({ success: false, error: 'Failed to fetch transactions' }, { status: 500 })
   }
 }
+
+
+export const dynamic = "force-dynamic";

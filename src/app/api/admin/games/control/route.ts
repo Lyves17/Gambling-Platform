@@ -111,3 +111,6 @@ export async function PUT(req: Request) {
     return NextResponse.json({ success: false, error: 'Update failed' }, { status: 500 })
   }
 }
+
+
+export const dynamic = "force-dynamic";
