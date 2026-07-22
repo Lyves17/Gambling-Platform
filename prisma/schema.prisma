@@ -152,6 +152,9 @@ model User {
   clientSeed          String?
   nonce               Int       @default(0)
   
+  // Web3 Wallet
+  walletAddress       String?   @unique  // Connected MetaMask wallet address
+  
   // Referral
   referralCode        String?   @unique
   referredBy          String?   @db.ObjectId

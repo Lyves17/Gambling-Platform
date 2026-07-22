@@ -2,14 +2,16 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, CheckCircle, TrendingDown, Shield, Clock } from 'lucide-react'
+import { AlertCircle, CheckCircle, TrendingDown, Shield, Clock, Wallet, Bitcoin, Copy } from 'lucide-react'
 import { useBalance } from '@/context/BalanceContext'
 import { useToast } from '@/hooks/use-toast'
+import { useAccount } from 'wagmi'
+import { WalletConnect } from '@/components/WalletConnect'
 
 export default function WithdrawPage() {
   const { toast } = useToast()
   const [amount, setAmount] = useState(500)
-  const [method, setMethod] = useState<'UPI' | 'BANK_TRANSFER'>('UPI')
+  const [method, setMethod] = useState<'UPI' | 'BANK_TRANSFER' | 'CRYPTO'>('UPI')
   const [otp, setOtp] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [otpLoading, setOtpLoading] = useState(false)
@@ -20,8 +22,12 @@ export default function WithdrawPage() {
     ifscCode: '',
     bankName: '',
   })
+  const [cryptoAddress, setCryptoAddress] = useState('')
+  const [cryptoCurrency, setCryptoCurrency] = useState<'ETH' | 'USDC'>('ETH')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+
+  const { address: connectedAddress, isConnected } = useAccount()
 
   const withdrawalFee = Math.max(10, amount * 0.02)
   const finalAmount = amount - withdrawalFee
@@ -46,7 +52,61 @@ export default function WithdrawPage() {
     }
   }
 
+  const handleCryptoWithdraw = async () => {
+    const withdrawAddress = connectedAddress || cryptoAddress
+    if (!withdrawAddress) {
+      toast({ title: 'Error', description: 'Please enter or connect your wallet address', variant: 'destructive' })
+      return
+    }
+
+    if (!otp) {
+      toast({ title: 'Error', description: 'Please enter the OTP sent to your email', variant: 'destructive' })
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/wallet/crypto-withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          currency: cryptoCurrency,
+          walletAddress: withdrawAddress,
+          otp,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.success) {
+        setSuccess(true)
+        refreshBalance()
+        setTimeout(() => {
+          setSuccess(false)
+          setAmount(500)
+          setOtp('')
+          setOtpSent(false)
+          setCryptoAddress('')
+        }, 3000)
+      } else {
+        toast({ title: 'Withdrawal Failed', description: data.error || 'Please try again', variant: 'destructive' })
+      }
+    } catch (error) {
+      console.error('Crypto withdrawal error:', error)
+      toast({ title: 'Error', description: 'Failed to process withdrawal', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleWithdraw = async () => {
+    if (method === 'CRYPTO') {
+      handleCryptoWithdraw()
+      return
+    }
+
     if (!otp) {
       toast({ title: 'Error', description: 'Please enter the OTP sent to your email', variant: 'destructive' })
       return
@@ -81,7 +141,7 @@ export default function WithdrawPage() {
 
       if (data.success) {
         setSuccess(true)
-        refreshBalance() // Update balance immediately
+        refreshBalance()
         setTimeout(() => {
           setSuccess(false)
           setAmount(500)
@@ -193,26 +253,48 @@ export default function WithdrawPage() {
                   {/* Payment Method */}
                   <div>
                     <label className="block text-sm text-gray-300 mb-4 uppercase tracking-wider font-medium">Withdrawal Method</label>
-                    <div className="flex gap-3">
+                    <div className="space-y-3">
                       <button
                         onClick={() => setMethod('UPI')}
-                        className={`flex-1 py-4 rounded-xl font-bold transition-all hover:scale-105 ${
+                        className={`w-full p-5 rounded-xl flex items-center gap-4 transition-all hover:scale-[1.02] ${
                           method === 'UPI'
                             ? 'bg-gradient-to-r from-primary to-purple-600 text-white shadow-[0_0_30px_rgba(102,126,234,0.3)]'
                             : 'bg-black/60 text-gray-400 hover:bg-black/80 border border-white/10'
                         }`}
                       >
-                        UPI
+                        <div className="w-7 h-7 flex items-center justify-center font-bold text-lg">₹</div>
+                        <div className="text-left flex-1">
+                          <p className="font-bold text-lg">UPI</p>
+                          <p className="text-sm opacity-80">Instant transfer to UPI ID</p>
+                        </div>
                       </button>
                       <button
                         onClick={() => setMethod('BANK_TRANSFER')}
-                        className={`flex-1 py-4 rounded-xl font-bold transition-all hover:scale-105 ${
+                        className={`w-full p-5 rounded-xl flex items-center gap-4 transition-all hover:scale-[1.02] ${
                           method === 'BANK_TRANSFER'
                             ? 'bg-gradient-to-r from-primary to-purple-600 text-white shadow-[0_0_30px_rgba(102,126,234,0.3)]'
                             : 'bg-black/60 text-gray-400 hover:bg-black/80 border border-white/10'
                         }`}
                       >
-                        Bank Transfer
+                        <div className="w-7 h-7 flex items-center justify-center font-bold text-lg">🏦</div>
+                        <div className="text-left flex-1">
+                          <p className="font-bold text-lg">Bank Transfer</p>
+                          <p className="text-sm opacity-80">NEFT/IMPS to bank account</p>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setMethod('CRYPTO')}
+                        className={`w-full p-5 rounded-xl flex items-center gap-4 transition-all hover:scale-[1.02] ${
+                          method === 'CRYPTO'
+                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-[0_0_30px_rgba(59,130,246,0.3)]'
+                            : 'bg-black/60 text-gray-400 hover:bg-black/80 border border-white/10'
+                        }`}
+                      >
+                        <Bitcoin className="w-7 h-7" />
+                        <div className="text-left flex-1">
+                          <p className="font-bold text-lg">Cryptocurrency</p>
+                          <p className="text-sm opacity-80">ETH, USDC via MetaMask</p>
+                        </div>
                       </button>
                     </div>
                   </div>
@@ -263,6 +345,74 @@ export default function WithdrawPage() {
                           placeholder="SBIN0001234"
                           className="w-full px-5 py-4 rounded-xl bg-black/60 border border-white/10 text-white focus:border-primary/50 focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
                         />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Crypto Withdrawal Details */}
+                  {method === 'CRYPTO' && (
+                    <div className="space-y-4 border-t border-white/10 pt-6">
+                      {!isConnected && (
+                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-center">
+                          <Wallet className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                          <p className="text-yellow-300 font-medium mb-3">Connect your wallet or enter address manually</p>
+                          <WalletConnect />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm text-gray-300 mb-2 uppercase tracking-wider font-medium">Cryptocurrency</label>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setCryptoCurrency('ETH')}
+                            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+                              cryptoCurrency === 'ETH'
+                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+                                : 'bg-black/60 text-gray-400 border border-white/10 hover:bg-black/80'
+                            }`}
+                          >
+                            ETH
+                          </button>
+                          <button
+                            onClick={() => setCryptoCurrency('USDC')}
+                            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+                              cryptoCurrency === 'USDC'
+                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+                                : 'bg-black/60 text-gray-400 border border-white/10 hover:bg-black/80'
+                            }`}
+                          >
+                            USDC
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-gray-300 mb-3 uppercase tracking-wider font-medium">
+                          {isConnected ? 'Connected Wallet Address' : 'Wallet Address *'}
+                        </label>
+                        {isConnected ? (
+                          <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                            <code className="flex-1 text-xs text-green-400 font-mono break-all">{connectedAddress}</code>
+                            <CheckCircle className="w-4 h-4 text-green-400" />
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={cryptoAddress}
+                            onChange={(e) => setCryptoAddress(e.target.value)}
+                            placeholder="0x..."
+                            className="w-full px-5 py-4 rounded-xl bg-black/60 border border-white/10 text-white font-mono text-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
+                          />
+                        )}
+                      </div>
+
+                      <div className="p-4 bg-black/40 rounded-xl space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">You will receive approximately</span>
+                          <span className="text-white font-bold">≈ {(finalAmount / 2000 / 83).toFixed(6)} {cryptoCurrency}</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Converted at market rate. Final amount confirmed on-chain.</p>
                       </div>
                     </div>
                   )}

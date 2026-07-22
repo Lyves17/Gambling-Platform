@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useBalance } from '@/context/BalanceContext'
+import { WalletConnect } from '@/components/WalletConnect'
 
 interface NavbarProps {
   variant?: 'public' | 'dashboard'
@@ -53,6 +54,11 @@ export function Navbar({ variant = 'public' }: NavbarProps) {
 
           {/* Right Side (Actions) */}
           <div className="flex items-center gap-3">
+             {/* Wallet Connect */}
+             <div className="hidden sm:block">
+               <WalletConnect />
+             </div>
+
              {/* Balance Pill */}
              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 hover:border-primary/50 transition-colors cursor-pointer group">
                 <Wallet className="w-4 h-4 text-emerald-400 group-hover:text-emerald-300" />
