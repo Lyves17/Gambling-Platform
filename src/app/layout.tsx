@@ -6,7 +6,7 @@ import { Providers } from '@/components/Providers'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 const orbitron = Orbitron({ subsets: ['latin'], variable: '--font-heading' })
-const rajdhani = Rajdhani({ subsets: ['latin'], variable: '--font-accent' })
+const rajdhani = Rajdhani({ subsets: ['latin'], weight: ['300', '400', '500', '600', '700'], variable: '--font-accent' })
 
 export const metadata: Metadata = {
   title: 'GambleFi - Web3 Gambling Platform',
