@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
-// import { Inter, Orbitron, Rajdhani } from 'next/font/google' // Google Fonts blocked
+import { Inter, Orbitron, Rajdhani } from 'next/font/google'
 import './globals.css'
 import { cn } from '@/lib/utils'
 import { Providers } from '@/components/Providers'
 
-// Fallback fonts are handled by system defaults
-// const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
-// const orbitron = Orbitron({ subsets: ['latin'], variable: '--font-heading' })
-// const rajdhani = Rajdhani({ ... })
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
+const orbitron = Orbitron({ subsets: ['latin'], variable: '--font-heading' })
+const rajdhani = Rajdhani({ subsets: ['latin'], variable: '--font-accent' })
 
 export const metadata: Metadata = {
   title: 'GambleFi - Web3 Gambling Platform',
@@ -24,10 +23,10 @@ export default function RootLayout({
       <body 
         suppressHydrationWarning={true}
         className={cn(
-        "min-h-screen bg-background font-sans antialiased overflow-x-hidden selection:bg-primary/20 selection:text-primary"
-        // inter.variable,
-        // orbitron.variable,
-        // rajdhani.variable
+        "min-h-screen bg-background font-sans antialiased overflow-x-hidden selection:bg-primary/20 selection:text-primary",
+        inter.variable,
+        orbitron.variable,
+        rajdhani.variable
       )}>
         <Providers>
           {children}
