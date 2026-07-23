@@ -1,5 +1,3 @@
-'use client'
-
 import Sidebar from '@/components/Sidebar' // Default export
 import { Navbar } from '@/components/layout/Navbar'
 import GlobalChat from '@/components/chat/GlobalChat'
