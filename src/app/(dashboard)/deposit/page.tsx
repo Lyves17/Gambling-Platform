@@ -121,7 +121,7 @@ export default function DepositPage() {
         body: JSON.stringify({
           txHash: txHash.trim(),
           currency: cryptoCurrency,
-          amount,
+          amount: parseFloat(ethAmount),
           walletAddress: address,
         }),
       })

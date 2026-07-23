@@ -150,13 +150,25 @@ export class BettingService {
    * Validate bet according to game settings
    */
   private static async validateBet(userId: string, game: GameType, wager: number) {
-    // Check game settings
-    const settings = await prisma.gameSettings.findUnique({
+    // Auto-seed GameSettings if missing
+    let settings = await prisma.gameSettings.findUnique({
       where: { game },
     })
 
     if (!settings) {
-      throw new Error('Game settings not found')
+      const defaultEdge: Record<string, number> = {
+        SLOTS: 3.0, ROULETTE: 2.7, BLACKJACK: 1.5, BACCARAT: 1.06,
+        MINES: 2.0, CRASH: 3.0, DICE: 2.0, COINFLIP: 2.0, PLINKO: 2.0, WHEEL: 5.0,
+      }
+      settings = await prisma.gameSettings.create({
+        data: {
+          game,
+          houseEdge: defaultEdge[game] || 2.0,
+          minBet: 1,
+          maxBet: 10000,
+          isActive: true,
+        },
+      })
     }
 
     if (!settings.isActive) {

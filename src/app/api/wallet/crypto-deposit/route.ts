@@ -39,11 +39,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { txHash, chainId, amount, currency } = body
+    const { txHash, chainId = 1, amount, currency } = body
 
-    if (!txHash || !chainId || !amount || !currency) {
+    if (!txHash || !amount || !currency) {
       return NextResponse.json(
-        { error: 'Missing required fields: txHash, chainId, amount, currency' },
+        { error: 'Missing required fields: txHash, amount, currency' },
         { status: 400 }
       )
     }

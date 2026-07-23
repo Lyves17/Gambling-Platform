@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { amount, currency } = body
+    const { amount, currency, walletAddress: bodyWalletAddress, otp } = body
 
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
@@ -45,17 +45,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Currency must be ETH or USDC' }, { status: 400 })
     }
 
-    // Get user's connected wallet
+    // Get user info
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { walletAddress: true, mainBalance: true },
     })
 
-    if (!user?.walletAddress) {
+    const walletAddress = user?.walletAddress || bodyWalletAddress
+
+    if (!walletAddress) {
       return NextResponse.json(
-        { error: 'No wallet connected. Please connect your MetaMask wallet first.' },
+        { error: 'No wallet address provided. Please connect your MetaMask wallet or enter an address.' },
         { status: 400 }
       )
+    }
+
+    // Save wallet address to user profile if not already set
+    if (!user?.walletAddress && bodyWalletAddress) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { walletAddress: bodyWalletAddress },
+      })
     }
 
     // Check sufficient balance (minimum 2% fee)
@@ -89,7 +99,7 @@ export async function POST(req: Request) {
         finalAmount: amount,
         method: PaymentMethod.CRYPTO,
         status: WithdrawalStatus.PENDING,
-        cryptoAddress: user.walletAddress,
+        cryptoAddress: walletAddress,
       },
     })
 
@@ -112,12 +122,12 @@ export async function POST(req: Request) {
           balanceAfter: user.mainBalance - totalDeduct,
           balanceType: 'main',
           status: TransactionStatus.PENDING,
-          description: `Crypto withdrawal: ${cryptoAmount.toFixed(6)} ${currency} to ${user.walletAddress}`,
+          description: `Crypto withdrawal: ${cryptoAmount.toFixed(6)} ${currency} to ${walletAddress}`,
           referenceId: withdrawal.id,
           metadata: {
             currency,
             cryptoAmount,
-            walletAddress: user.walletAddress,
+            walletAddress: walletAddress,
           },
         },
       })
@@ -131,7 +141,7 @@ export async function POST(req: Request) {
         fee,
         currency,
         cryptoAmount,
-        walletAddress: user.walletAddress,
+        walletAddress: walletAddress,
         status: 'PENDING',
       },
       message: `Withdrawal of ${cryptoAmount.toFixed(6)} ${currency} requested. Processing within 24 hours.`,

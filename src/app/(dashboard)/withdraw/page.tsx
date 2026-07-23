@@ -59,11 +59,6 @@ export default function WithdrawPage() {
       return
     }
 
-    if (!otp) {
-      toast({ title: 'Error', description: 'Please enter the OTP sent to your email', variant: 'destructive' })
-      return
-    }
-
     setLoading(true)
 
     try {
@@ -104,11 +99,6 @@ export default function WithdrawPage() {
   const handleWithdraw = async () => {
     if (method === 'CRYPTO') {
       handleCryptoWithdraw()
-      return
-    }
-
-    if (!otp) {
-      toast({ title: 'Error', description: 'Please enter the OTP sent to your email', variant: 'destructive' })
       return
     }
 
@@ -477,7 +467,7 @@ export default function WithdrawPage() {
                   {/* Submit */}
                   <button
                     onClick={handleWithdraw}
-                    disabled={loading || !otpSent || otp.length < 6}
+                    disabled={loading}
                     className="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white py-5 text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-[0_0_40px_rgba(251,146,60,0.4)] hover:scale-[1.02]"
                   >
                     {loading ? (

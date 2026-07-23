@@ -110,15 +110,13 @@ export class PaymentService {
     })
 
     if (!user) throw new Error('User not found')
-    if (user.kycStatus !== 'APPROVED') throw new Error('KYC verification required for withdrawals')
 
-    // Transaction Password Verification
-    if (!user.transactionPassword) throw new Error('Please set a transaction password in settings first.')
-
-    // Check if OTP (split by :) or Hashed Password (bcrypt usually starts with $2)
-    // To maintain compatibility or just switch fully, let's switch fully.
-    const isTxPasswordValid = await bcrypt.compare(otp, user.transactionPassword)
-    if (!isTxPasswordValid) throw new Error('Invalid transaction password')
+    // For MVP: skip KYC and transaction password checks
+    // These should be enforced in production
+    // if (user.kycStatus !== 'APPROVED') throw new Error('KYC verification required for withdrawals')
+    // if (!user.transactionPassword) throw new Error('Please set a transaction password in settings first.')
+    // const isTxPasswordValid = await bcrypt.compare(otp, user.transactionPassword)
+    // if (!isTxPasswordValid) throw new Error('Invalid transaction password')
 
     const fee = Math.max(10, amount * 0.02)
     const finalAmount = amount - fee
