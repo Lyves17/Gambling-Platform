@@ -14,10 +14,15 @@ interface BalanceUpdate {
 
 interface ChatMessage {
   id: string
-  userId: string
-  userEmail: string
   message: string
-  timestamp: Date
+  isSystem: boolean
+  createdAt: string
+  user: {
+    name: string | null
+    image: string | null
+    vipLevel: string
+    role: string
+  }
 }
 
 export function useWebSocket() {
@@ -36,9 +41,10 @@ export function useWebSocket() {
       console.log('[WebSocket] Connected:', socketInstance.id)
       setConnected(true)
 
-      // Authenticate if session exists
       if (session?.user?.id) {
-        socketInstance.emit('authenticate', session.user.id)
+        socketInstance.emit('authenticate', {
+          userId: session.user.id,
+        })
       }
     })
 
@@ -57,7 +63,6 @@ export function useWebSocket() {
 
     socketInstance.connect()
 
-    // Use microtask to avoid synchronous state update in effect warning
     Promise.resolve().then(() => {
       setSocket(socketInstance)
     })
@@ -82,7 +87,7 @@ export function useLiveBets() {
     if (!socket) return
 
     const handleNewBet = (bet: SharedBet) => {
-      setBets((prev) => [bet, ...prev].slice(0, 50)) // Keep last 50 bets
+      setBets((prev) => [bet, ...prev].slice(0, 50))
     }
 
     socket.on('bet:new', handleNewBet)
@@ -130,7 +135,6 @@ export function useGameRoom(roomId: string) {
   useEffect(() => {
     if (!socket || !connected) return
 
-    // Join room
     socket.emit('room:join', roomId)
 
     socket.on('room:joined', () => {
@@ -157,4 +161,3 @@ export function useGameRoom(roomId: string) {
 
   return { joined, messages, sendMessage }
 }
-

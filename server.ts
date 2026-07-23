@@ -3,13 +3,14 @@ import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
 import { Server as SocketIOServer } from 'socket.io'
-import { verify } from 'jsonwebtoken'
+import { PrismaClient } from '@prisma/client'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = '0.0.0.0'
 const port = parseInt(process.env.PORT || '3000', 10)
 
-// Initialize Next.js
+const prisma = new PrismaClient()
+
 const app = next({ dev, hostname, port })
 const handle = app.getRequestHandler()
 
@@ -25,56 +26,84 @@ app.prepare().then(() => {
     }
   })
 
-  // Initialize Socket.io
   const io = new SocketIOServer(httpServer, {
     path: '/socket.io',
     addTrailingSlash: false,
     cors: {
-      origin: '*', // Adjust for production
+      origin: '*',
       methods: ['GET', 'POST']
     }
   })
 
   io.on('connection', (socket) => {
-    // console.log(`[Socket] Client connected: ${socket.id}`)
-
-    socket.on('authenticate', (token: string) => {
+    socket.on('authenticate', async (data: { userId: string }) => {
       try {
-        if (!process.env.NEXTAUTH_SECRET) return
-        const decoded = verify(token, process.env.NEXTAUTH_SECRET) as { sub: string; email: string }
-        // @ts-expect-error -- custom socket property not in Socket type def
-        socket.userId = decoded.sub
-        // @ts-expect-error -- custom socket property
-        socket.userEmail = decoded.email
-        socket.emit('auth:success', { userId: decoded.sub })
+        if (!data?.userId) {
+          socket.emit('auth:error', 'Missing userId')
+          return
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { id: data.userId },
+          select: { id: true, name: true, email: true, image: true, vipLevel: true, role: true }
+        })
+
+        if (!user) {
+          socket.emit('auth:error', 'User not found')
+          return
+        }
+
+        // @ts-expect-error custom socket properties
+        socket.userId = user.id
+        // @ts-expect-error custom socket properties
+        socket.userName = user.name
+        // @ts-expect-error custom socket properties
+        socket.userEmail = user.email
+        // @ts-expect-error custom socket properties
+        socket.userImage = user.image
+        // @ts-expect-error custom socket properties
+        socket.userVipLevel = user.vipLevel
+        // @ts-expect-error custom socket properties
+        socket.userRole = user.role
+
+        socket.emit('auth:success', { userId: user.id })
       } catch {
-        socket.emit('auth:error', 'Invalid token')
+        socket.emit('auth:error', 'Auth failed')
       }
     })
 
-    socket.on('chat:send', (data) => {
-      // @ts-expect-error -- custom socket property
+    socket.on('chat:send', (data: { message: string; roomId?: string }) => {
+      // @ts-expect-error custom socket property
       if (!socket.userId) {
         socket.emit('chat:error', 'Unauthorized')
         return
       }
 
+      const messageContent = data?.message?.trim()
+      if (!messageContent || messageContent.length > 500) return
+
       const message = {
-        id: Date.now().toString(),
-        // @ts-expect-error -- custom socket property
-        userId: socket.userId,
-        // @ts-expect-error -- custom socket property
-        userEmail: socket.userEmail,
-        ...data,
-        timestamp: new Date()
+        id: `${Date.now()}-${socket.id}`,
+        message: messageContent,
+        isSystem: false,
+        createdAt: new Date().toISOString(),
+        user: {
+          // @ts-expect-error custom socket property
+          name: socket.userName || 'User',
+          // @ts-expect-error custom socket property
+          image: socket.userImage || null,
+          // @ts-expect-error custom socket property
+          vipLevel: socket.userVipLevel || 'BRONZE',
+          // @ts-expect-error custom socket property
+          role: socket.userRole || 'USER',
+        }
       }
 
-      // Broadcast to everyone
       io.emit('chat:message', message)
     })
 
     socket.on('disconnect', () => {
-      // console.log(`[Socket] Client disconnected: ${socket.id}`)
+      // disconnected
     })
   })
 
