@@ -44,6 +44,14 @@ const navigation: NavItem[] = [
     { name: 'Crash', href: '/crash', emoji: '🚀' },
     { name: 'Mines', href: '/mines', emoji: '💣' },
     { name: 'Slots', href: '/slots', emoji: '🎰' },
+    { name: 'Plinko', href: '/plinko', emoji: '📌' },
+    { name: 'Blackjack', href: '/blackjack', emoji: '🃏' },
+    { name: 'Baccarat', href: '/baccarat', emoji: '👑' },
+    { name: 'Hi-Lo', href: '/hilo', emoji: '🔼' },
+    { name: 'Keno', href: '/keno', emoji: '🔢' },
+    { name: 'Wheel', href: '/wheel', emoji: '🎯' },
+    { name: 'Limbo', href: '/limbo', emoji: '🚀' },
+    { name: 'Video Poker', href: '/video-poker', emoji: '♠️' },
   ]},
   { name: 'Transactions', href: '/transactions', icon: History },
   { name: 'Deposit', href: '/deposit', icon: DollarSign },
@@ -82,7 +90,7 @@ export default function Sidebar({ items }: SidebarProps) {
 
   // Auto-expand Games menu if on a game page
   useEffect(() => {
-    const gameRoutes = ['/dice', '/coinflip', '/roulette', '/crash', '/mines', '/slots', '/plinko']
+    const gameRoutes = ['/dice', '/coinflip', '/roulette', '/crash', '/mines', '/slots', '/plinko', '/blackjack', '/baccarat', '/hilo', '/keno', '/wheel', '/limbo', '/video-poker']
     if (gameRoutes.some(route => pathname?.includes(route))) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setExpandedMenu('Games')

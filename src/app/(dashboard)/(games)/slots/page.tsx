@@ -26,74 +26,59 @@ export default function SlotsGame() {
   const [reels, setReels] = useState([0, 0, 0])
   const [result, setResult] = useState<SlotsResult | null>(null)
 
-  const spinReels = () => {
+  const spinReels = async () => {
     setSpinning(true)
     setResult(null)
 
-    // Generate random reels instantly
-    const finalReels = [
-      Math.floor(Math.random() * SYMBOLS.length),
-      Math.floor(Math.random() * SYMBOLS.length),
-      Math.floor(Math.random() * SYMBOLS.length),
-    ]
-
-    // Quick spin animation (500ms)
-    const spinInterval = setInterval(() => {
-      setReels([
-        Math.floor(Math.random() * SYMBOLS.length),
-        Math.floor(Math.random() * SYMBOLS.length),
-        Math.floor(Math.random() * SYMBOLS.length),
-      ])
-    }, 50)
-
-    // Stop after 500ms with instant result
-    setTimeout(() => {
-      clearInterval(spinInterval)
-      setReels(finalReels)
-      
-      // Calculate win instantly - compare symbol NAMES not indices
-      const symbolName0 = SYMBOLS[finalReels[0]].name
-      const symbolName1 = SYMBOLS[finalReels[1]].name
-      const symbolName2 = SYMBOLS[finalReels[2]].name
-      
-      let multiplier = 0
-      let isWin = false
-      
-      // Check for 3 matching symbols
-      if (symbolName0 === symbolName1 && symbolName1 === symbolName2) {
-        // All 3 match
-        multiplier = 30 + (finalReels[0] * 5) // 30x to 50x based on symbol
-        isWin = true
-      }
-      // Check for 2 matching symbols
-      else if (symbolName0 === symbolName1 || symbolName1 === symbolName2 || symbolName0 === symbolName2) {
-        // Any 2 match
-        multiplier = 2
-        isWin = true
-      }
-      
-      const payout = isWin ? wager * multiplier : 0
-      
-      setResult({
-        isWin,
-        wager,
-        payout,
-        multiplier,
-        reels: finalReels
-      })
-      
-      setSpinning(false)
-      
-      // Fire API call in background (non-blocking)
-      fetch('/api/bets/place', {
+    try {
+      const res = await fetch('/api/bets/place', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           game: 'SLOTS',
           wager,
         }),
-      }).catch(err => console.error('Background bet logging failed:', err))
-    }, 500)
+      })
+      const data = await res.json()
+
+      if (!data.success) {
+        throw new Error(data.error || 'Bet failed')
+      }
+
+      const serverReels: number[] = data.result.result.reels
+      const serverMultiplier: number = data.result.multiplier
+      const serverPayout: number = data.result.payout
+      const serverIsWin: boolean = data.result.isWin
+
+      // Animate through random reels, then land on server result
+      const spinInterval = setInterval(() => {
+        setReels([
+          Math.floor(Math.random() * SYMBOLS.length),
+          Math.floor(Math.random() * SYMBOLS.length),
+          Math.floor(Math.random() * SYMBOLS.length),
+        ])
+      }, 50)
+
+      setTimeout(() => {
+        clearInterval(spinInterval)
+        setReels(serverReels)
+
+        setResult({
+          isWin: serverIsWin,
+          wager,
+          payout: serverPayout,
+          multiplier: serverMultiplier,
+          reels: serverReels
+        })
+
+        setSpinning(false)
+      }, 500)
+
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'An error occurred'
+      alert(msg)
+      setSpinning(false)
+    }
   }
 
   const getSymbol = (num: number) => {

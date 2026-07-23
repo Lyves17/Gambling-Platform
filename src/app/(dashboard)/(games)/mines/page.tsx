@@ -5,127 +5,139 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Bomb, Trophy, Coins, Play, Volume2, VolumeX } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
 
-interface MinesResult {
+interface GameState {
+  betId: string
+  minePositions: number[]
+  mineCount: number
+}
+
+interface CashoutResult {
   isWin: boolean
-  wager: number
   payout: number
   multiplier: number
-  betId?: string
 }
 
 export default function MinesGame() {
-  const [wager, setWager] = useState(10)
+  const [wager] = useState(10)
   const [mineCount, setMineCount] = useState(3)
   const [playing, setPlaying] = useState(false)
   const [revealed, setRevealed] = useState<number[]>([])
-  const [result, setResult] = useState<MinesResult | null>(null)
+  const [result, setResult] = useState<CashoutResult | null>(null)
   const [minePositions, setMinePositions] = useState<number[]>([])
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [gameOver, setGameOver] = useState(false)
   const [currentMultiplier, setCurrentMultiplier] = useState(1.00)
-  const [sessionMines, setSessionMines] = useState<number[]>([])
+  const [gameState, setGameState] = useState<GameState | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const handlePlaySound = (type: 'click' | 'win' | 'lose' | 'pop' | 'coin') => {
     if (soundEnabled) playSound(type)
   }
 
-  const startGame = () => {
+  const startGame = async () => {
     handlePlaySound('click')
-    
-    // Generate mine positions instantly on client
-    const mines: number[] = []
-    while (mines.length < mineCount) {
-      const pos = Math.floor(Math.random() * 25)
-      if (!mines.includes(pos)) mines.push(pos)
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/games/mines/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mineCount }),
+      })
+      const data = await res.json()
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to start game')
+      }
+
+      setGameState({
+        betId: data.betId,
+        minePositions: data.minePositions,
+        mineCount: data.mineCount,
+      })
+      setMinePositions(data.minePositions)
+      setPlaying(true)
+      setRevealed([])
+      setResult(null)
+      setGameOver(false)
+      setCurrentMultiplier(1.00)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to start game'
+      alert(msg)
+    } finally {
+      setLoading(false)
     }
-    
-    setSessionMines(mines)
-    setPlaying(true)
-    setRevealed([])
-    setResult(null)
-    setMinePositions([])
-    setGameOver(false)
-    setCurrentMultiplier(1.00)
   }
 
   const revealTile = (position: number) => {
     if (!playing || revealed.includes(position) || gameOver) return
 
     const newRevealed = [...revealed, position]
-    const hitMine = sessionMines.includes(position)
-    
+    const hitMine = minePositions.includes(position)
+
     setRevealed(newRevealed)
     handlePlaySound('click')
 
     if (hitMine) {
-      // Hit mine - instant game over
       handlePlaySound('lose')
-      setMinePositions(sessionMines)
       setPlaying(false)
       setGameOver(true)
       setResult({
         isWin: false,
-        wager: wager,
         payout: 0,
         multiplier: 0
       })
     } else {
-      // Safe tile - calculate multiplier instantly
       handlePlaySound('pop')
       const safeTiles = newRevealed.length
       const totalTiles = 25
       const mines = mineCount
-      
-      // Calculate multiplier based on revealed safe tiles
+
       let multiplier = 1.00
       for (let i = 0; i < safeTiles; i++) {
         multiplier *= (totalTiles - i) / (totalTiles - mines - i)
       }
-      multiplier *= 0.97 // 3% house edge
-      
+      multiplier *= 0.97
+
       setCurrentMultiplier(multiplier)
-      setResult({
-        isWin: true,
-        wager: wager,
-        payout: wager * multiplier,
-        multiplier: multiplier
-      })
     }
-    
-    // Fire API call in background (non-blocking, for logging only)
-    fetch('/api/bets/place', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        game: 'MINES',
-        wager,
-        gameConfig: {
-          mines: mineCount,
-          selections: newRevealed,
-        },
-      }),
-    }).catch(err => console.error('Background bet logging failed:', err))
   }
 
-  const cashout = () => {
-    if (!playing || gameOver || revealed.length === 0) return
-    
+  const cashout = async () => {
+    if (!playing || gameOver || revealed.length === 0 || !gameState) return
+
     handlePlaySound('win')
-    
-    // Instant cashout - reveal all mines
-    setMinePositions(sessionMines)
-    setPlaying(false)
-    setGameOver(true)
-    
-    // Fire API call in background (non-blocking)
-    fetch('/api/bets/cashout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        game: 'MINES',
-        betId: result?.betId,
-      }),
-    }).catch(err => console.error('Background cashout logging failed:', err))
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/games/mines/cashout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          betId: gameState.betId,
+          revealed,
+        }),
+      })
+      const data = await res.json()
+
+      if (!data.success) {
+        throw new Error(data.error || 'Cashout failed')
+      }
+
+      setMinePositions(gameState.minePositions)
+      setPlaying(false)
+      setGameOver(true)
+      setResult({
+        isWin: data.isWin,
+        payout: data.payout,
+        multiplier: data.multiplier,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Cashout failed'
+      alert(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const displayMultiplier = currentMultiplier.toFixed(2)
@@ -240,37 +252,38 @@ export default function MinesGame() {
                      className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 rounded-xl"
                    >
                      <motion.div
-                        initial={{ scale: 0.5, y: 20 }}
-                        animate={{ scale: 1, y: 0 }}
-                        className={`p-8 rounded-2xl border-2 text-center shadow-2xl max-w-sm w-full mx-4 ${
-                            result.isWin 
-                                ? 'bg-black/90 border-green-500 shadow-green-500/20' 
-                                : 'bg-black/90 border-red-500 shadow-red-500/20'
-                        }`}
+                         initial={{ scale: 0.5, y: 20 }}
+                         animate={{ scale: 1, y: 0 }}
+                         className={`p-8 rounded-2xl border-2 text-center shadow-2xl max-w-sm w-full mx-4 ${
+                             result.isWin 
+                                 ? 'bg-black/90 border-green-500 shadow-green-500/20' 
+                                 : 'bg-black/90 border-red-500 shadow-red-500/20'
+                         }`}
                      >
-                        <div className="mb-4 flex justify-center">
-                            {result.isWin ? (
-                                <div className="p-4 rounded-full bg-green-500/20">
-                                    <Trophy className="w-12 h-12 text-green-400" />
-                                </div>
-                            ) : (
-                                <div className="p-4 rounded-full bg-red-500/20">
-                                    <Bomb className="w-12 h-12 text-red-500" />
-                                </div>
-                            )}
-                        </div>
-                        <h2 className="text-3xl font-bold text-white mb-2">
-                            {result.isWin ? 'Cashed Out!' : 'Busted!'}
-                        </h2>
-                        <div className="text-4xl font-mono font-bold mb-6 gradient-text">
-                            {result.isWin ? `+₹${result.payout.toFixed(2)}` : `-₹${result.wager.toFixed(2)}`}
-                        </div>
-                        <button 
-                            onClick={startGame}
-                            className="w-full py-3 rounded-xl bg-white text-black font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Play className="w-5 h-5" /> Play Again
-                        </button>
+                         <div className="mb-4 flex justify-center">
+                             {result.isWin ? (
+                                 <div className="p-4 rounded-full bg-green-500/20">
+                                     <Trophy className="w-12 h-12 text-green-400" />
+                                 </div>
+                             ) : (
+                                 <div className="p-4 rounded-full bg-red-500/20">
+                                     <Bomb className="w-12 h-12 text-red-500" />
+                                 </div>
+                             )}
+                         </div>
+                         <h2 className="text-3xl font-bold text-white mb-2">
+                             {result.isWin ? 'Cashed Out!' : 'Busted!'}
+                         </h2>
+                         <div className="text-4xl font-mono font-bold mb-6 gradient-text">
+                             {result.isWin ? `+₹${result.payout.toFixed(2)}` : `-₹${wager.toFixed(2)}`}
+                         </div>
+                         <button 
+                             onClick={startGame}
+                             disabled={loading}
+                             className="w-full py-3 rounded-xl bg-white text-black font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                         >
+                             <Play className="w-5 h-5" /> Play Again
+                         </button>
                      </motion.div>
                    </motion.div>
                 )}
@@ -312,27 +325,9 @@ export default function MinesGame() {
                 </label>
                 <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
-                    <input
-                      type="number"
-                      value={wager}
-                      onChange={(e) => setWager(Number(e.target.value))}
-                      min="1"
-                      max="3000"
-                      disabled={playing}
-                      className="w-full pl-8 pr-4 py-4 rounded-xl bg-black/40 border border-white/10 text-white focus:border-primary focus:outline-none disabled:opacity-50 text-lg font-mono"
-                    />
-                </div>
-                <div className="grid grid-cols-4 gap-2 mt-2">
-                    {[10, 50, 100, 500].map(amt => (
-                        <button 
-                            key={amt}
-                            onClick={() => setWager(amt)}
-                            disabled={playing}
-                            className="py-1 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono disabled:opacity-50"
-                        >
-                            {amt}
-                        </button>
-                    ))}
+                    <div className="w-full pl-8 pr-4 py-4 rounded-xl bg-black/40 border border-white/10 text-white text-lg font-mono">
+                      {wager}
+                    </div>
                 </div>
               </div>
 
@@ -362,7 +357,7 @@ export default function MinesGame() {
               {playing ? (
                   <button
                     onClick={cashout}
-                    disabled={revealed.length === 0}
+                    disabled={revealed.length === 0 || loading}
                     className="w-full py-4 rounded-xl bg-green-500 hover:bg-green-600 text-white text-lg font-bold shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Coins className="w-5 h-5" /> Cashout ₹{potentialWin}
@@ -370,9 +365,10 @@ export default function MinesGame() {
               ) : (
                   <button
                     onClick={startGame}
-                    className="w-full btn-primary py-4 text-lg font-bold shadow-[0_0_20px_rgba(251,191,36,0.4)] flex items-center justify-center gap-2"
+                    disabled={loading}
+                    className="w-full btn-primary py-4 text-lg font-bold shadow-[0_0_20px_rgba(251,191,36,0.4)] flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Play className="w-5 h-5" /> Start Game
+                    <Play className="w-5 h-5" /> {loading ? 'Starting...' : 'Start Game'}
                   </button>
               )}
             </div>

@@ -43,8 +43,10 @@ export default function RouletteGame() {
           game: 'ROULETTE',
           wager,
           gameConfig: {
-            betType,
-            ...(betType === 'number' ? { number: selectedNumber } : { color: selectedColor }),
+            bet: {
+              type: betType,
+              value: betType === 'number' ? selectedNumber : selectedColor,
+            },
           },
         }),
       })
